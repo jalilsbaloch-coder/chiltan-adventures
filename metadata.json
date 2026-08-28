@@ -1,0 +1,6 @@
+{
+  "name": "Chiltan Adventures",
+  "description": "Eco-tourism and adventure travel agency in Balochistan offering curated tour packages, gallery showcase, and dedicated admin management system.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
