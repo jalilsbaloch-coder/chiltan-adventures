@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { imageStorageService } from '../services/imageStorage';
 
 export const uploadDir = process.env.VERCEL
   ? path.join('/tmp', 'uploads')
@@ -15,7 +16,7 @@ try {
 }
 
 export function createImageUploader(prefix: string = 'media') {
-  // Use memory storage for fast, reliable serverless and cloud-compatible uploads
+  // Memory storage is optimal for serverless, cloud environments, and fast streaming
   const storage = multer.memoryStorage();
 
   const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -46,88 +47,31 @@ export function createImageUploader(prefix: string = 'media') {
 }
 
 /**
- * Converts an uploaded Multer file into a persistent, cloud-compatible Data URI.
- * This guarantees the image will render 100% reliably in Vercel serverless functions,
- * MySQL, SQLite, and CDN without depending on local disk persistence.
+ * Resolves the image URI using ImageStorageService.
  */
-export function fileToDataUri(file: Express.Multer.File): string {
-  if (!file) return '';
-  
-  // If buffer is available from memoryStorage
-  if (file.buffer && file.buffer.length > 0) {
-    const mimeType = file.mimetype || 'image/jpeg';
-    const base64 = file.buffer.toString('base64');
-    
-    // In local dev, optionally save a backup copy to disk if public folder is writable
-    if (!process.env.VERCEL) {
-      try {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        const filename = `media-${Date.now()}-${Math.round(Math.random() * 1e6)}${ext}`;
-        const filePath = path.join(uploadDir, filename);
-        fs.writeFileSync(filePath, file.buffer);
-      } catch (err) {
-        // Silently continue with data URI
-      }
-    }
-    
-    return `data:${mimeType};base64,${base64}`;
-  }
-
-  // Fallback for disk storage file
-  if (file.path && fs.existsSync(file.path)) {
-    try {
-      const buffer = fs.readFileSync(file.path);
-      const mimeType = file.mimetype || 'image/jpeg';
-      return `data:${mimeType};base64,${buffer.toString('base64')}`;
-    } catch (e) {
-      return `/uploads/${file.filename}`;
-    }
-  }
-
-  return '';
+export async function resolveImageUri(file: Express.Multer.File | undefined, existingUrl?: string | null): Promise<string | null> {
+  return imageStorageService.saveImage(file, existingUrl);
 }
 
 /**
- * Resolves the image value for saving to database:
- * Uses the uploaded file's persistent Data URI, or preserves the existing/provided URL.
+ * Normalizes an image URL for display or storage.
  */
-export function resolveImageUri(file: Express.Multer.File | undefined, existingUrl?: string | null): string | null {
-  if (file) {
-    const dataUri = fileToDataUri(file);
-    if (dataUri) return dataUri;
-  }
-  return existingUrl || null;
+export function normalizeImageUrl(url: string | null | undefined, fallback?: string): string {
+  return imageStorageService.normalizeUrl(url, fallback);
 }
 
 /**
  * Safely removes a file from /uploads/ if no longer referenced.
- * Does not remove static initial assets in /images/
  */
-export function safeDeleteUploadedFile(imagePath: string | null | undefined): void {
-  if (!imagePath) return;
-  // If it's a data URI or static /images/ path, no disk cleanup needed
-  if (typeof imagePath === 'string' && imagePath.startsWith('/uploads/')) {
-    const fullPath = path.join(process.cwd(), 'public', imagePath);
-    try {
-      if (fs.existsSync(fullPath)) {
-        fs.unlinkSync(fullPath);
-      }
-    } catch (err) {
-      // Ignored
-    }
-  }
+export async function safeDeleteUploadedFile(imagePath: string | null | undefined): Promise<void> {
+  return imageStorageService.deleteImage(imagePath);
 }
 
 /**
- * Rolls back newly uploaded file from disk if the database update failed
+ * Rolls back newly uploaded file from disk if the database update failed.
  */
 export function rollbackUploadedFile(file: Express.Multer.File | undefined): void {
-  if (!file || !file.path) return;
-  try {
-    if (fs.existsSync(file.path)) {
-      fs.unlinkSync(file.path);
-    }
-  } catch (err) {
-    // Ignored
-  }
+  return imageStorageService.rollbackFile(file);
 }
+
+export { imageStorageService };

@@ -16,10 +16,10 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
-// Serve static uploaded media
+// Serve static uploaded media if stored locally
 app.use('/uploads', express.static(uploadDir));
 app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
 
@@ -35,19 +35,31 @@ app.use(async (req, res, next) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
+const healthHandler = (req: express.Request, res: express.Response) => {
   res.json({
     status: 'ok',
     mode: process.env.DB_HOST ? 'mysql' : 'demo',
     timestamp: new Date().toISOString()
   });
-});
+};
 
-// API Routes
+app.get('/api/health', healthHandler);
+app.get('/health', healthHandler);
+
+// API Routes mounted on both /api/* and root paths for seamless Vercel / serverless routing
 app.use('/api/auth', authRouter);
+app.use('/auth', authRouter);
+
 app.use('/api/packages', packagesRouter);
+app.use('/packages', packagesRouter);
+
 app.use('/api/gallery', galleryRouter);
+app.use('/gallery', galleryRouter);
+
 app.use('/api/team', teamRouter);
+app.use('/team', teamRouter);
+
 app.use('/api/messages', messagesRouter);
+app.use('/messages', messagesRouter);
 
 export default app;

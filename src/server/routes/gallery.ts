@@ -87,7 +87,7 @@ galleryRouter.get('/:id', async (req, res) => {
 galleryRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { title, description, package_id, destination, price, is_featured, display_order, image: rawImageUrl } = req.body;
-    const image = resolveImageUri(req.file, rawImageUrl);
+    const image = await resolveImageUri(req.file, rawImageUrl);
     
     if (!image) {
       return res.status(400).json({ message: 'Image file or valid image URL is required' });
@@ -146,7 +146,7 @@ galleryRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) 
       return res.status(400).json({ message: 'Image title is required' });
     }
 
-    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
+    const image = await resolveImageUri(req.file, rawImageUrl || oldImage);
 
     const parsedPackageId = package_id && package_id !== '' ? parseInt(package_id, 10) : null;
     const parsedPrice = price !== undefined && price !== '' && price !== null && !isNaN(parseFloat(price)) ? parseFloat(price) : null;
@@ -206,7 +206,7 @@ galleryRouter.post('/:id/image', requireAuth, upload.single('image'), async (req
     }
     const currentItem = existing.rows[0];
     const oldImage = currentItem.image;
-    const newImage = resolveImageUri(req.file, req.body.image);
+    const newImage = await resolveImageUri(req.file, req.body.image);
 
     try {
       await db.execute({

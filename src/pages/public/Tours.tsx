@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { MapPin, Clock } from 'lucide-react';
 import { TourPackage } from '../../types';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 export default function Tours() {
   const [tours, setTours] = useState<TourPackage[]>([]);
@@ -52,7 +53,7 @@ export default function Tours() {
             <div key={tour.id} className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all border border-stone-100 flex flex-col">
               <div className="relative h-64 overflow-hidden">
                 <img 
-                  src={tour.image ? tour.image : '/images/fallback-tour.jpg'} 
+                  src={normalizeImageUrl(tour.image)} 
                   alt={tour.title}
                   className="w-full h-full object-cover"
                   onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg' }}

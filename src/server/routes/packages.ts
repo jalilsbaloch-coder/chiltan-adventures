@@ -33,7 +33,7 @@ packagesRouter.get('/:slug', async (req, res) => {
 packagesRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { title, slug, destination, description, duration, price, status, image: rawImageUrl } = req.body;
-    const image = resolveImageUri(req.file, rawImageUrl);
+    const image = await resolveImageUri(req.file, rawImageUrl);
 
     const result = await db.execute({ 
       sql: 'INSERT INTO packages (title, slug, destination, description, duration, price, image, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)', 
@@ -71,7 +71,7 @@ packagesRouter.put('/:id', requireAuth, upload.single('image'), async (req, res)
     }
 
     const oldImage = existing.image;
-    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
+    const image = await resolveImageUri(req.file, rawImageUrl || oldImage);
 
     try {
       await db.execute({ 

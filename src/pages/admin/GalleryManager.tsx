@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { fetchWithAuth } from '../../lib/auth';
 import { GalleryImage, TourPackage } from '../../types';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 const COMMON_DESTINATIONS = [
   'Ziarat',
@@ -592,7 +593,7 @@ export default function GalleryManager() {
               {/* Image Thumbnail with Overlay Badges */}
               <div className="relative aspect-[4/3] bg-stone-100 overflow-hidden">
                 <img
-                  src={item.image}
+                  src={normalizeImageUrl(item.image)}
                   alt={item.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                   onError={(e) => {
@@ -966,9 +967,10 @@ export default function GalleryManager() {
                     </span>
                     <div className="aspect-[4/3] rounded-xl overflow-hidden border border-stone-200 bg-stone-100 relative group">
                       <img 
-                        src={activeItem.image} 
+                        src={normalizeImageUrl(activeItem.image)} 
                         alt="Current Photograph" 
                         className="w-full h-full object-cover" 
+                        onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }}
                       />
                       <div className="absolute bottom-1.5 left-1.5 bg-stone-900/80 text-white text-[10px] font-semibold px-2 py-0.5 rounded">
                         Active on Site
@@ -1210,9 +1212,10 @@ export default function GalleryManager() {
                   </span>
                   <div className="aspect-[4/3] rounded-xl overflow-hidden border border-stone-200 bg-stone-100">
                     <img 
-                      src={activeItem.image} 
+                      src={normalizeImageUrl(activeItem.image)} 
                       alt="Current" 
                       className="w-full h-full object-cover" 
+                      onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }}
                     />
                   </div>
                 </div>
@@ -1302,9 +1305,10 @@ export default function GalleryManager() {
 
               <div className="aspect-[16/9] rounded-xl overflow-hidden border border-stone-200 mb-6 bg-stone-100">
                 <img 
-                  src={activeItem.image} 
+                  src={normalizeImageUrl(activeItem.image)} 
                   alt={activeItem.title} 
                   className="w-full h-full object-cover" 
+                  onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }}
                 />
               </div>
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, X, UploadCloud, RefreshCw, Check } from 'lucide-react';
 import { fetchWithAuth } from '../../lib/auth';
 import { TeamMember } from '../../types';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 export default function TeamManager() {
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -123,7 +124,7 @@ export default function TeamManager() {
           <div key={member.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 flex p-6 gap-4">
             <div className="w-20 h-20 rounded-2xl overflow-hidden bg-stone-200 shrink-0 border border-stone-100">
               {member.image ? (
-                <img src={member.image} alt={member.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/team/team-1.jpg'; }} />
+                <img src={normalizeImageUrl(member.image, '/images/team/team-1.jpg')} alt={member.name} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/team/team-1.jpg'; }} />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">No Photo</div>
               )}
@@ -183,7 +184,7 @@ export default function TeamManager() {
                       </span>
                       <div className="w-20 h-20 rounded-2xl overflow-hidden border border-stone-200 bg-stone-100">
                         {editingMember.image ? (
-                          <img src={editingMember.image} alt="Current" className="w-full h-full object-cover" />
+                          <img src={normalizeImageUrl(editingMember.image, '/images/team/team-1.jpg')} alt="Current" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/team/team-1.jpg'; }} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[10px] text-stone-400">None</div>
                         )}

@@ -18,7 +18,7 @@ teamRouter.get('/', async (req, res) => {
 teamRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { name, designation, bio, image: rawImageUrl } = req.body;
-    const image = resolveImageUri(req.file, rawImageUrl);
+    const image = await resolveImageUri(req.file, rawImageUrl);
     
     const result = await db.execute({ 
       sql: 'INSERT INTO team (name, designation, bio, image, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', 
@@ -52,7 +52,7 @@ teamRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) => 
     }
 
     const oldImage = existing.image;
-    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
+    const image = await resolveImageUri(req.file, rawImageUrl || oldImage);
 
     try {
       await db.execute({ 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2, X, UploadCloud, RefreshCw, Check } from 'lucide-react';
 import { fetchWithAuth } from '../../lib/auth';
 import { TourPackage } from '../../types';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 export default function PackagesManager() {
   const [packages, setPackages] = useState<TourPackage[]>([]);
@@ -150,7 +151,7 @@ export default function PackagesManager() {
                 <td className="p-4">
                   <div className="w-16 h-12 bg-stone-200 rounded-lg overflow-hidden">
                     {pkg.image ? (
-                      <img src={pkg.image} alt={pkg.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }} />
+                      <img src={normalizeImageUrl(pkg.image)} alt={pkg.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }} />
                     ) : (
                       <div className="w-full h-full bg-stone-100 flex items-center justify-center text-[10px] text-stone-400">No Image</div>
                     )}
@@ -220,7 +221,7 @@ export default function PackagesManager() {
                       </span>
                       <div className="aspect-[16/10] rounded-xl overflow-hidden border border-stone-200 bg-stone-100">
                         {editingPkg.image ? (
-                          <img src={editingPkg.image} alt="Current" className="w-full h-full object-cover" />
+                          <img src={normalizeImageUrl(editingPkg.image)} alt="Current" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.src = '/images/fallback-tour.jpg'; }} />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-xs text-stone-400">No image set</div>
                         )}

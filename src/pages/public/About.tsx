@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { TeamMember } from '../../types';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 export default function About() {
   const [team, setTeam] = useState<TeamMember[]>([]);
@@ -59,7 +60,7 @@ export default function About() {
               <div key={member.id} className="bg-white rounded-2xl overflow-hidden shadow-sm border border-stone-100 text-center p-6 hover:shadow-md transition-shadow">
                 <div className="w-32 h-32 mx-auto rounded-full overflow-hidden mb-6 border-4 border-stone-50">
                   <img 
-                    src={member.image ? member.image : '/images/team/team-1.jpg'} 
+                    src={normalizeImageUrl(member.image, '/images/team/team-1.jpg')} 
                     alt={member.name}
                     className="w-full h-full object-cover"
                     onError={(e) => { e.currentTarget.src = '/images/team/team-1.jpg' }}
