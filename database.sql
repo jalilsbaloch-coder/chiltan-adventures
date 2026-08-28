@@ -31,7 +31,7 @@ USE `chiltan_adventures`;
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `name` varchar(100) NOT NULL,
-  `email` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL UNIQUE,
   `password` varchar(255) NOT NULL,
   `role` varchar(20) DEFAULT 'admin',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -40,9 +40,9 @@ CREATE TABLE `users` (
 --
 -- Dumping data for table `users`
 --
--- Note: The password is 'admin123' hashed with bcrypt
+-- Note: The password is '12345' hashed with bcrypt
 INSERT INTO `users` (`id`, `name`, `email`, `password`, `role`, `created_at`) VALUES
-(1, 'System Admin', 'admin@chiltanadventures.com', '$2a$10$7z.j2l.1Y.2U.3X.4W.5V.6T.7S.8R.9Q.0P.1O.2N.3M.4L.5K', 'admin', '2026-08-26 10:00:00');
+(1, 'Chiltan Administrator', 'jalilsbaloch@gmail.com', '$2b$10$FgrX90YYHqbgT/4.GFPJYeZmzx6RcI1Btf/1mAE.3Vl0tFwnnCN56', 'admin', '2026-08-26 10:00:00');
 
 -- --------------------------------------------------------
 
@@ -58,7 +58,7 @@ CREATE TABLE `packages` (
   `description` text NOT NULL,
   `duration` varchar(100) NOT NULL,
   `price` decimal(10,2) NOT NULL,
-  `image` varchar(255) DEFAULT NULL,
+  `image` longtext DEFAULT NULL,
   `status` enum('active','inactive') DEFAULT 'active',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
@@ -86,7 +86,7 @@ CREATE TABLE `gallery` (
   `id` int(11) NOT NULL,
   `title` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
-  `image` varchar(255) NOT NULL,
+  `image` longtext NOT NULL,
   `package_id` int(11) DEFAULT NULL,
   `destination` varchar(255) DEFAULT NULL,
   `price` decimal(10,2) DEFAULT NULL,
@@ -121,7 +121,7 @@ CREATE TABLE `team` (
   `name` varchar(100) NOT NULL,
   `designation` varchar(100) NOT NULL,
   `bio` text NOT NULL,
-  `image` varchar(255) DEFAULT NULL,
+  `image` longtext DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

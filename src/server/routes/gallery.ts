@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db/setup';
 import { requireAuth } from './auth';
-import { createImageUploader, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
+import { createImageUploader, resolveImageUri, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
 
 const galleryRouter = Router();
 const upload = createImageUploader('gallery');
@@ -86,17 +86,17 @@ galleryRouter.get('/:id', async (req, res) => {
 // POST /api/gallery (Add new gallery image)
 galleryRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    const { title, description, package_id, destination, price, is_featured, display_order } = req.body;
+    const { title, description, package_id, destination, price, is_featured, display_order, image: rawImageUrl } = req.body;
+    const image = resolveImageUri(req.file, rawImageUrl);
     
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image file is required' });
+    if (!image) {
+      return res.status(400).json({ message: 'Image file or valid image URL is required' });
     }
     if (!title || !title.trim()) {
       rollbackUploadedFile(req.file);
       return res.status(400).json({ message: 'Image title is required' });
     }
 
-    const image = '/uploads/' + req.file.filename;
     const parsedPackageId = package_id && package_id !== '' ? parseInt(package_id, 10) : null;
     const parsedPrice = price && price !== '' && !isNaN(parseFloat(price)) ? parseFloat(price) : null;
     const parsedFeatured = is_featured === '1' || is_featured === 'true' || is_featured === true ? 1 : 0;
@@ -140,16 +140,13 @@ galleryRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) 
     const currentItem = existing.rows[0];
     const oldImage = currentItem.image;
 
-    const { title, description, package_id, destination, price, is_featured, display_order } = req.body;
+    const { title, description, package_id, destination, price, is_featured, display_order, image: rawImageUrl } = req.body;
     if (!title || !title.trim()) {
       rollbackUploadedFile(req.file);
       return res.status(400).json({ message: 'Image title is required' });
     }
 
-    let image = oldImage;
-    if (req.file) {
-      image = '/uploads/' + req.file.filename;
-    }
+    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
 
     const parsedPackageId = package_id && package_id !== '' ? parseInt(package_id, 10) : null;
     const parsedPrice = price !== undefined && price !== '' && price !== null && !isNaN(parseFloat(price)) ? parseFloat(price) : null;
@@ -166,7 +163,6 @@ galleryRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) 
         args: [title.trim(), cleanDescription, image, parsedPackageId, cleanDestination, parsedPrice, parsedFeatured, parsedOrder, id]
       });
     } catch (dbErr: any) {
-      // If DB update fails and a new file was uploaded, delete the new file and keep old image
       rollbackUploadedFile(req.file);
       console.error('Database update failed in PUT /api/gallery/:id:', dbErr);
       return res.status(500).json({ 
@@ -199,8 +195,8 @@ galleryRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) 
 galleryRouter.post('/:id/image', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { id } = req.params;
-    if (!req.file) {
-      return res.status(400).json({ message: 'New image file is required for replacement' });
+    if (!req.file && !req.body.image) {
+      return res.status(400).json({ message: 'New image file or image URI is required for replacement' });
     }
 
     const existing = await db.execute({ sql: 'SELECT * FROM gallery WHERE id = ?', args: [id] });
@@ -210,7 +206,7 @@ galleryRouter.post('/:id/image', requireAuth, upload.single('image'), async (req
     }
     const currentItem = existing.rows[0];
     const oldImage = currentItem.image;
-    const newImage = '/uploads/' + req.file.filename;
+    const newImage = resolveImageUri(req.file, req.body.image);
 
     try {
       await db.execute({

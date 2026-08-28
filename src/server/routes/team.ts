@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db/setup';
 import { requireAuth } from './auth';
-import { createImageUploader, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
+import { createImageUploader, resolveImageUri, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
 
 const teamRouter = Router();
 const upload = createImageUploader('team');
@@ -17,8 +17,8 @@ teamRouter.get('/', async (req, res) => {
 
 teamRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    const { name, designation, bio } = req.body;
-    const image = req.file ? '/uploads/' + req.file.filename : null;
+    const { name, designation, bio, image: rawImageUrl } = req.body;
+    const image = resolveImageUri(req.file, rawImageUrl);
     
     const result = await db.execute({ 
       sql: 'INSERT INTO team (name, designation, bio, image, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)', 
@@ -42,7 +42,7 @@ teamRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
 
 teamRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    const { name, designation, bio } = req.body;
+    const { name, designation, bio, image: rawImageUrl } = req.body;
     const id = req.params.id;
     
     const existing = await db.execute({ sql: 'SELECT * FROM team WHERE id = ?', args: [id] }).then(r => r.rows[0]) as any;
@@ -52,10 +52,7 @@ teamRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) => 
     }
 
     const oldImage = existing.image;
-    let image = oldImage;
-    if (req.file) {
-      image = '/uploads/' + req.file.filename;
-    }
+    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
 
     try {
       await db.execute({ 

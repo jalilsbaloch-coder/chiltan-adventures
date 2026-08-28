@@ -18,16 +18,21 @@ if (process.env.DB_HOST && process.env.DB_USER) {
     database: process.env.DB_NAME,
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined
   });
   console.log('Database Mode: LOCALHOST / MYSQL');
 } else {
   isMySqlMode = false;
-  const dbPath = path.join(process.cwd(), 'database.sqlite');
+  const dbPath = process.env.DB_PATH || (
+    process.env.VERCEL 
+      ? path.join('/tmp', 'database.sqlite')
+      : path.join(process.cwd(), 'database.sqlite')
+  );
   sqliteDb = createClient({
     url: 'file:' + dbPath,
   });
-  console.log('Database Mode: DEMO / PREVIEW (SQLite mock data)');
+  console.log(`Database Mode: DEMO / PREVIEW (SQLite at ${dbPath})`);
 }
 
 // Uniform DB Wrapper
@@ -180,29 +185,92 @@ export async function initializeDatabase() {
     );
   `);
 
-  // Ensure gallery table has all columns for existing databases
-  const galleryCols = [
-    { name: 'description', def: 'TEXT' },
-    { name: 'destination', def: 'TEXT' },
-    { name: 'price', def: 'REAL' },
-    { name: 'is_featured', def: 'INTEGER DEFAULT 0' },
-    { name: 'display_order', def: 'INTEGER DEFAULT 0' },
-    { name: 'updated_at', def: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
-  ];
-  for (const col of galleryCols) {
+  // Ensure gallery table has all columns for existing databases safely without throwing duplicate column errors
+  try {
+    const existingColNames = new Set<string>();
+    if (isMySqlMode) {
+      try {
+        const colsResult = await db.execute('SHOW COLUMNS FROM gallery');
+        for (const row of colsResult.rows) {
+          const colName = row.Field || row.COLUMN_NAME || row.name;
+          if (colName) existingColNames.add(String(colName).toLowerCase());
+        }
+      } catch (e) {
+        // Table may be freshly created
+      }
+    } else {
+      try {
+        const colsResult = await db.execute('PRAGMA table_info(gallery)');
+        for (const row of colsResult.rows) {
+          const colName = row.name;
+          if (colName) existingColNames.add(String(colName).toLowerCase());
+        }
+      } catch (e) {
+        // Table may be freshly created
+      }
+    }
+
+    const galleryCols = [
+      { name: 'description', def: 'TEXT' },
+      { name: 'destination', def: 'TEXT' },
+      { name: 'price', def: 'REAL' },
+      { name: 'is_featured', def: 'INTEGER DEFAULT 0' },
+      { name: 'display_order', def: 'INTEGER DEFAULT 0' },
+      { name: 'updated_at', def: 'DATETIME DEFAULT CURRENT_TIMESTAMP' }
+    ];
+
+    for (const col of galleryCols) {
+      if (!existingColNames.has(col.name.toLowerCase())) {
+        try {
+          await db.execute(`ALTER TABLE gallery ADD COLUMN ${col.name} ${col.def}`);
+        } catch (e) {
+          // Column already exists or table freshly created
+        }
+      }
+    }
+  } catch (err) {
+    // Migration fallback
+  }
+
+  // Seed/Update Admin User with Configured Credentials
+  const adminEmail = (process.env.ADMIN_EMAIL || 'jalilsbaloch@gmail.com').trim().toLowerCase();
+  const adminPassword = process.env.ADMIN_PASSWORD || '12345';
+  const adminName = process.env.ADMIN_NAME || 'Chiltan Administrator';
+  const hashedPassword = bcrypt.hashSync(adminPassword, 10);
+
+  // If legacy admin exists and differs from new admin email, update it
+  if (adminEmail !== 'admin@chiltanadventures.com') {
     try {
-      await db.execute(`ALTER TABLE gallery ADD COLUMN ${col.name} ${col.def}`);
+      const legacyCheck = await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: ['admin@chiltanadventures.com'] });
+      if (legacyCheck.rows.length > 0) {
+        await db.execute({
+          sql: 'UPDATE users SET email = ?, name = ?, password = ? WHERE email = ?',
+          args: [adminEmail, adminName, hashedPassword, 'admin@chiltanadventures.com']
+        });
+        console.log(`Migrated legacy demo admin to configured email: ${adminEmail}`);
+      }
     } catch (e) {
-      // Column already exists or table freshly created
+      // Ignore if table/constraint handled elsewhere
     }
   }
 
-  // Seed Admin User
-  const adminCheck = await db.execute({ sql: 'SELECT id FROM users WHERE email = ?', args: ['admin@chiltanadventures.com'] });
+  const adminCheck = await db.execute({ sql: 'SELECT id, password FROM users WHERE LOWER(email) = ?', args: [adminEmail] });
   if (adminCheck.rows.length === 0) {
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    await db.execute({ sql: 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)', args: ['System Admin', 'admin@chiltanadventures.com', hashedPassword, 'admin'] });
-    console.log('Seeded admin user.');
+    await db.execute({
+      sql: 'INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)',
+      args: [adminName, adminEmail, hashedPassword, 'admin']
+    });
+    console.log(`Seeded configured admin user for: ${adminEmail}`);
+  } else {
+    // Ensure password matches the configured ADMIN_PASSWORD
+    const existingPasswordHash = adminCheck.rows[0].password;
+    if (!bcrypt.compareSync(adminPassword, existingPasswordHash)) {
+      await db.execute({
+        sql: 'UPDATE users SET password = ?, name = ? WHERE LOWER(email) = ?',
+        args: [hashedPassword, adminName, adminEmail]
+      });
+      console.log(`Updated admin password hash for: ${adminEmail}`);
+    }
   }
 
   // Seed Packages
@@ -279,6 +347,19 @@ export async function initializeDatabase() {
     }
     console.log('Seeded messages.');
   }
+}
+
+let initPromise: Promise<void> | null = null;
+
+export function ensureDatabaseInitialized(): Promise<void> {
+  if (!initPromise) {
+    initPromise = initializeDatabase().catch((err) => {
+      console.error('Failed to initialize database:', err);
+      initPromise = null;
+      throw err;
+    });
+  }
+  return initPromise;
 }
 
 export default db;

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db/setup';
 import { requireAuth } from './auth';
-import { createImageUploader, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
+import { createImageUploader, resolveImageUri, safeDeleteUploadedFile, rollbackUploadedFile } from '../utils/upload';
 
 const packagesRouter = Router();
 const upload = createImageUploader('package');
@@ -32,8 +32,8 @@ packagesRouter.get('/:slug', async (req, res) => {
 // Create a package (Protected)
 packagesRouter.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    const { title, slug, destination, description, duration, price, status } = req.body;
-    const image = req.file ? '/uploads/' + req.file.filename : null;
+    const { title, slug, destination, description, duration, price, status, image: rawImageUrl } = req.body;
+    const image = resolveImageUri(req.file, rawImageUrl);
 
     const result = await db.execute({ 
       sql: 'INSERT INTO packages (title, slug, destination, description, duration, price, image, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)', 
@@ -61,7 +61,7 @@ packagesRouter.post('/', requireAuth, upload.single('image'), async (req, res) =
 // Update a package (Protected)
 packagesRouter.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
   try {
-    const { title, slug, destination, description, duration, price, status } = req.body;
+    const { title, slug, destination, description, duration, price, status, image: rawImageUrl } = req.body;
     const id = req.params.id;
     
     const existing = await db.execute({ sql: 'SELECT * FROM packages WHERE id = ?', args: [id] }).then(r => r.rows[0]) as any;
@@ -71,10 +71,7 @@ packagesRouter.put('/:id', requireAuth, upload.single('image'), async (req, res)
     }
 
     const oldImage = existing.image;
-    let image = oldImage;
-    if (req.file) {
-      image = '/uploads/' + req.file.filename;
-    }
+    const image = resolveImageUri(req.file, rawImageUrl || oldImage);
 
     try {
       await db.execute({ 
@@ -90,7 +87,7 @@ packagesRouter.put('/:id', requireAuth, upload.single('image'), async (req, res)
       return res.status(500).json({ message: 'Image replacement failed. The existing package was preserved.' });
     }
 
-    // Safely remove old image if replacement was successful
+    // Safely remove old image if replacement was successful and old image was local
     if (req.file && oldImage && oldImage !== image) {
       safeDeleteUploadedFile(oldImage);
     }
