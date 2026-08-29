@@ -84,7 +84,7 @@ export function getDatabaseClient() {
 
   if (isProduction) {
     // CRITICAL REQUIREMENT: In Vercel production, DO NOT silently fall back to ephemeral SQLite.
-    const errorMsg = 'Production MySQL database is not configured. Please configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT or DATABASE_URL in Vercel Environment Variables.';
+    const errorMsg = 'Production database is not configured. Please configure DB_HOST, DB_USER, DB_PASSWORD, DB_NAME, DB_PORT or DATABASE_URL in Vercel Environment Variables.';
     return { type: 'error' as const, error: errorMsg };
   }
 
@@ -448,16 +448,41 @@ export async function initializeDatabase(): Promise<void> {
 }
 
 let initPromise: Promise<void> | null = null;
+let isInitialized = false;
 
 export function ensureDatabaseInitialized(): Promise<void> {
+  if (isInitialized) {
+    return Promise.resolve();
+  }
   if (!initPromise) {
-    initPromise = initializeDatabase().catch((err) => {
-      console.error('[Database Init Error]:', err.message || err);
-      initPromise = null;
-      throw err;
-    });
+    initPromise = initializeDatabase()
+      .then(() => {
+        isInitialized = true;
+      })
+      .catch((err) => {
+        console.error('[Database Init Error]:', err.message || err);
+        initPromise = null;
+        throw err;
+      });
   }
   return initPromise;
+}
+
+/**
+ * Safe server-side diagnostics: logs boolean status flags without revealing secrets or credentials.
+ */
+export function logServerDiagnostics(): void {
+  const isMySqlConfigured = Boolean(getMySqlConfiguration());
+  const isBlobConfigured = Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_READ_WRITE_TOKEN);
+  const isAdminConfigured = Boolean(
+    (process.env.ADMIN_EMAIL || 'jalilsbaloch@gmail.com') && 
+    (process.env.ADMIN_PASSWORD || '12345')
+  );
+
+  console.log(`[Diagnostics] Environment: ${getIsProduction() ? 'PRODUCTION (Vercel)' : 'DEVELOPMENT / PREVIEW'}`);
+  console.log(`[Diagnostics] MYSQL_CONFIGURED: ${isMySqlConfigured}`);
+  console.log(`[Diagnostics] BLOB_CONFIGURED: ${isBlobConfigured}`);
+  console.log(`[Diagnostics] ADMIN_CONFIGURED: ${isAdminConfigured}`);
 }
 
 export default db;

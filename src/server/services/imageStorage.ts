@@ -100,7 +100,7 @@ export class ImageStorageService {
     if (this.isProduction) {
       const token = this.getBlobToken();
       if (!token) {
-        const errorMsg = 'Vercel Blob storage is not configured in production. Please set BLOB_READ_WRITE_TOKEN in your Vercel project Environment Variables.';
+        const errorMsg = 'Production image storage is not configured. Please set BLOB_READ_WRITE_TOKEN in your Vercel project Environment Variables.';
         console.error(`[Production ImageStorage Error] ${errorMsg}`);
         throw new Error(errorMsg);
       }

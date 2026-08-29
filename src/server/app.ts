@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
-import { ensureDatabaseInitialized, db } from './db/setup';
+import { ensureDatabaseInitialized, db, logServerDiagnostics } from './db/setup';
 import { uploadDir } from './utils/upload';
 import { imageStorageService } from './services/imageStorage';
 
@@ -13,6 +13,7 @@ import teamRouter from './routes/team';
 import messagesRouter from './routes/messages';
 
 dotenv.config();
+logServerDiagnostics();
 
 const app = express();
 
