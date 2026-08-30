@@ -13,9 +13,10 @@ function getIsProduction() {
   return Boolean(process.env.VERCEL || process.env.VERCEL_ENV === "production");
 }
 function getMySqlConfiguration() {
-  if (process.env.DATABASE_URL) {
+  const connectionUrl = process.env.DATABASE_URL || process.env.MYSQL_PUBLIC_URL || process.env.MYSQL_URL;
+  if (connectionUrl) {
     try {
-      const url = new URL(process.env.DATABASE_URL);
+      const url = new URL(connectionUrl);
       if (url.hostname && !url.hostname.includes("placeholder") && !url.hostname.includes("Session_")) {
         return {
           host: url.hostname,
@@ -27,18 +28,21 @@ function getMySqlConfiguration() {
         };
       }
     } catch (e) {
-      console.error("[MySQL Config] Error parsing DATABASE_URL:", e);
+      console.error("[MySQL Config] Error parsing database URL:", e);
     }
   }
-  const host = process.env.DB_HOST?.trim();
-  const user = process.env.DB_USER?.trim();
+  const host = (process.env.DB_HOST || process.env.RAILWAY_TCP_PROXY_DOMAIN)?.trim();
+  const user = (process.env.DB_USER || process.env.MYSQLUSER)?.trim();
+  const port = parseInt(process.env.DB_PORT || process.env.RAILWAY_TCP_PROXY_PORT || process.env.MYSQLPORT || "3306", 10);
+  const password = process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || "";
+  const database = (process.env.DB_NAME || process.env.MYSQLDATABASE || "chiltan_adventures").trim();
   if (host && user && !host.includes("Session_") && !host.includes("placeholder") && !host.includes("demo")) {
     return {
       host,
-      port: parseInt(process.env.DB_PORT || "3306", 10),
+      port,
       user,
-      password: process.env.DB_PASSWORD || "",
-      database: process.env.DB_NAME || "chiltan_adventures",
+      password,
+      database,
       ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : void 0
     };
   }
@@ -342,22 +346,38 @@ async function initializeDatabase() {
     }
     console.log("[Database] Seeded initial tour packages.");
   }
-  const teamCount = await db.execute("SELECT COUNT(*) as count FROM team");
-  const teamCountVal = Number(teamCount.rows[0].count || teamCount.rows[0].COUNT || 0);
-  if (teamCountVal === 0) {
-    const tm = [
-      ["Tariq Baloch", "Founder & Lead Guide", "With over 15 years of experience exploring the rugged terrains of Balochistan, Tariq founded Chiltan Adventures to share the hidden beauties of the region with the world.", "/images/team/team-1.jpg"],
-      ["Sara Khan", "Operations Manager", "Sara ensures every tour runs smoothly. Her attention to detail and passion for hospitality guarantees a comfortable experience for all our guests.", "/images/team/team-2.jpg"],
-      ["Ahmed Ali", "Senior Trekking Expert", "A certified mountaineer, Ahmed leads our challenging expeditions. Safety and adventure go hand-in-hand under his expert guidance.", "/images/team/team-3.jpg"],
-      ["Zainab Qazi", "Cultural Specialist", "Zainab brings our heritage tours to life, sharing deep insights into local traditions, history, and folklore.", "/images/team/team-4.jpg"]
-    ];
-    for (const t of tm) {
+  try {
+    await db.execute({
+      sql: "DELETE FROM team WHERE name IN ('Tariq Baloch', 'Sara Khan', 'Ahmed Ali', 'Zainab Qazi')"
+    });
+    const teamCheck = await db.execute({
+      sql: "SELECT id FROM team WHERE name = ?",
+      args: ["Jalil Ur Rehman"]
+    });
+    if (teamCheck.rows.length === 0) {
       await db.execute({
         sql: "INSERT INTO team (name, designation, bio, image) VALUES (?, ?, ?, ?)",
-        args: t
+        args: [
+          "Jalil Ur Rehman",
+          "Project Developer",
+          "AI Web Development student and aspiring web developer. Chiltan Adventures is my final project for the AI Web Development course.",
+          ""
+        ]
+      });
+      console.log("[Database] Seeded Jalil Ur Rehman as Project Developer.");
+    } else {
+      await db.execute({
+        sql: "UPDATE team SET designation = ?, bio = ?, image = ? WHERE name = ?",
+        args: [
+          "Project Developer",
+          "AI Web Development student and aspiring web developer. Chiltan Adventures is my final project for the AI Web Development course.",
+          "",
+          "Jalil Ur Rehman"
+        ]
       });
     }
-    console.log("[Database] Seeded initial team members.");
+  } catch (err) {
+    console.error("[Database] Team synchronization notice:", err);
   }
   const galleryCount = await db.execute("SELECT COUNT(*) as count FROM gallery");
   const galleryCountVal = Number(galleryCount.rows[0].count || galleryCount.rows[0].COUNT || 0);
